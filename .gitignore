@@ -3,4 +3,5 @@ package-lock.json
 package.json
 yarn.lock
 jest.config.js
-ts.config.json
+tsconfig.json
+launch.json 
