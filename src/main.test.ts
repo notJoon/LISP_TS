@@ -1,4 +1,6 @@
-import { ParseAtom, toChar, Atom, List, ParseList, isAtom, isList, first, rest, Evaluate } from './main';
+import { toChar, isAtom, isList, first, rest } from './parser';
+import { ParseAtom, Atom, List, ParseList } from "./parser";
+import { Evaluate } from "./evaluator";
 
 describe.skip('Parse', () => {
         test('expect return: array of chars', () => {
@@ -16,7 +18,7 @@ describe.skip('Parse', () => {
     })
 })
 
-describe.skip('PaseAtom', () => {
+describe.skip('ParseAtom', () => {
     test('should return a symbol of Atom, given a string containing a name', () => {
         const input = ParseAtom('a')
         const expected = <Atom> {value: 'a'}
@@ -227,7 +229,7 @@ describe.skip('check List', () => {
     })
 })
 
-describe('Arithmetic Operation', () => {
+describe.skip('Arithmetic Operation', () => {
     test('+ : calculate arithmetic expression correctly', () => {
         const s = ParseList('(+ 1 2)')
         const input = Evaluate(s)
@@ -248,6 +250,13 @@ describe('Arithmetic Operation', () => {
         expect(input.value).toBe(expected.value)
     })
 
+    test('- : calculate arithmetic expression correctly', () => {
+        const s = ParseList('(- -1 2)')
+        const input = Evaluate(s)
+        const expected = <Atom> {value: -3}
+        expect(input.value).toBe(expected.value)
+    })
+
     test('- : return false if input is invalid form', () => {
         const s = ParseList('(-)')
         const input = () => {Evaluate(s)}
@@ -262,7 +271,7 @@ describe('Arithmetic Operation', () => {
     })
 
     test('* : return false if input is invalid form', () => {
-        const s = ParseList('(-)')
+        const s = ParseList('(*)')
         const input = () => {Evaluate(s)}
         expect(input).toThrowError('Not enought argument to the operation')
     })
