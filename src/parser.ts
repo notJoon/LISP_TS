@@ -2,23 +2,36 @@ export function toChar(s: string): string[] {
     return Array.from(s)
 }
 
-export interface Atom {
-    value: number | string;
+export interface Atom<T> {
+    value: T;
 }
 
-export function ParseAtom(s: string): Atom {
+export type AUT = Atom<string> | Atom<number> | Atom<boolean>
+
+export function ParseAtom(s: string): AUT {
     s.trim();
-    if (s === '')
-        throw new Error('invalid symbol');
+    if (s === '') throw new Error('invalid symbol');
     const result = Number(s);
 
-    return isNaN(result) ? <Atom>{ value: s } : <Atom>{ value: result };
+    if (isNaN(result)) {
+        if (s === 'true') {
+            return <Atom<boolean>>{value: true}
+        }
+
+        if (s === 'false') {
+            return <Atom<boolean>>{value: false}
+        }
+        return <Atom<string>>{value: s}
+
+    } else {
+        return <Atom<number>>{value: result}
+    }
 }
 // List is a sequencce of Atoms or Lists
 // e.g. (1 2 (3 4) (5 6 7))
 
 export interface List {
-    items: (Atom | List)[];
+    items: (AUT | List)[];
 }
 const ListOpenDelimeter = '(';
 const ListCloseDelimeter = ')';
@@ -74,15 +87,15 @@ export function ParseList(s: string): List {
     return <List>l.items[0];
 }
 
-export function isAtom(o: Atom | List): o is Atom {
-    return (o as Atom).value !== undefined
+export function isAtom(o: AUT | List): o is AUT {
+    return (o as AUT).value !== undefined
 }
 
-export function isList(o: Atom | List): o is List {
+export function isList(o: AUT | List): o is List {
     return (o as List).items !== undefined
 }
 
-export function first(l: List): Atom {
+export function first(l: List): AUT {
     if (l.items.length === 0) throw Error('List is empty')
     if (isAtom(l.items[0])) {
         return l.items[0]
