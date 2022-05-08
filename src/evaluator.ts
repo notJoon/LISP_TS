@@ -1,4 +1,3 @@
-import { addSyntheticLeadingComment, getTextOfJSDocComment } from "typescript";
 import { Atom, List, isAtom, isList, first, rest, AUT } from "./parser";
 
 type basicArithmeticOperator = (a: Atom<number>, b: Atom<number>) => Atom<number>;
@@ -91,11 +90,12 @@ const basicComparisonOperators: FunctionMapComparison = {
 
 // f.value contains the comparison symbol 
 function doComparisonOperations(r: List, f: Atom<string>): Atom<boolean> {
-    const func = basicComparisonOperators[f.value]
+    const defun = basicComparisonOperators[f.value]
 
-    if (r.items.length != 2) throw new Error('Comparision operator ' + f.value + ' needs 2 arguments')
+    if (r.items.length != 2) throw new Error('Comparision operator ' + f.value + 
+                                                    ' needs 2 arguments. got=' + r.items.length)
     const [a, b] = r.items 
-    return func(Evaluate(a), Evaluate(b))
+    return defun(Evaluate(a), Evaluate(b))
 }
 
 // ------------------------------ //
@@ -118,17 +118,32 @@ const basicLogicalOperators: FunctionMapLogical = {
 }
 
 function doLogicalOperations(r: List, f: Atom<string>): Atom<boolean> {
-    const func = basicLogicalOperators[f.value]
+    const defun = basicLogicalOperators[f.value]
 
-    if (r.items.length != 2) throw new Error('Logical operator ' + f.value + ' needs 2 arguments') 
+    if (r.items.length != 2) throw new Error('Logical operator ' + f.value 
+                                                        + ' needs 2 arguments. got=' + r.items.length) 
     const [a, b] = r.items 
-    return func(Evaluate(a), Evaluate(b))
+    return defun(Evaluate(a), Evaluate(b))
 }
 
 // --------------------------
 function doConditionalOperators(r: List, f: Atom<string>): AUT {
     const [test, ifTrue, ifFalse] = r.items
     return Evaluate(test).value ? Evaluate(ifTrue) : Evaluate(ifFalse)
+}
+
+// --------------------------
+
+function doFunctionOperations(r: List, f: Atom<string>): AUT {
+    // defun <name> <args> <body ... n>
+    if (r.items.length < 3) throw Error('defun does not have enought arguments needs 3 arguments. got=' + r.items.length) 
+    const fname = r.items[0]
+    const fparams = r.items[1]
+    const fbodies = r.items.slice(2)
+
+    // TODO store function into a scoped context 
+
+    return <Atom<boolean>> { value: true }
 }
 
 export function Evaluate(exp: AUT | List): AUT {
@@ -149,6 +164,8 @@ export function Evaluate(exp: AUT | List): AUT {
             return doLogicalOperations(r, f)
         } else if (f.value === 'if') {
             return doConditionalOperators(r, f);
+        } else if (f.value === 'defun') {
+            return doFunctionOperations(r, f);
         }
         return f 
     }

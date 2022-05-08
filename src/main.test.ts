@@ -310,14 +310,14 @@ describe.skip('Comparison Operator', () => {
         const t = ParseList('(==)')
         const input = () => {Evaluate(t)}
 
-        expect(input).toThrowError(Error("Comparision operator == needs 2 arguments"))
+        expect(input).toThrowError(Error("Comparision operator == needs 2 arguments. got=0"))
     })
 
     test('parse comparison: ==', () => {
         const t = ParseList('(== 1)')
         const input = () => {Evaluate(t)}
 
-        expect(input).toThrowError(Error("Comparision operator == needs 2 arguments"))
+        expect(input).toThrowError(Error("Comparision operator == needs 2 arguments. got=1"))
     })
 
     test('== : return true', () => {
@@ -424,28 +424,28 @@ describe.skip('Logical Ops', () => {
         const t = ParseList('(&&)')
         const input = () => { Evaluate(t) }
 
-        expect(input).toThrowError(Error('Logical operator && needs 2 arguments'))
+        expect(input).toThrowError(Error('Logical operator && needs 2 arguments. got=0'))
     })
 
     test('throw error for lack of arguments. given 1 op, 1 arg', () => {
         const t = ParseList('(&& true)')
         const input = () => { Evaluate(t) }
 
-        expect(input).toThrowError(Error('Logical operator && needs 2 arguments'))
+        expect(input).toThrowError(Error('Logical operator && needs 2 arguments. got=1'))
     })
 
     test('throw error for lack of arguments. given only op', () => {
         const t = ParseList('(||)')
         const input = () => { Evaluate(t) }
 
-        expect(input).toThrowError(Error('Logical operator || needs 2 arguments'))
+        expect(input).toThrowError(Error('Logical operator || needs 2 arguments. got=0'))
     })
 
     test('throw error for lack of arguments. given 1 op, 1 arg', () => {
         const t = ParseList('(|| true)')
         const input = () => { Evaluate(t) }
 
-        expect(input).toThrowError(Error('Logical operator || needs 2 arguments'))
+        expect(input).toThrowError(Error('Logical operator || needs 2 arguments. got=1'))
     })
 
     test('&&. return true', () => {
@@ -527,5 +527,35 @@ describe.skip('Conditioning Operators', () => {
         const input = Evaluate(t)
 
         expect(input.value).toBe('nope')
+    })
+})
+
+describe("Function", () => {
+    test('function throw grammar Error', () => {
+        const t = ParseList('(defun () 0)')
+        const input = () => { Evaluate(t) }
+
+        expect(input).toThrowError(Error('defun does not have enought arguments needs 3 arguments. got=2'))
+    })
+
+    test('main function throw grammar Error', () => {
+        const t = ParseList('(defun main)')
+        const input = () => { Evaluate(t) }
+
+        expect(input).toThrowError(Error('defun does not have enought arguments needs 3 arguments. got=1'))
+    })
+
+    test('main function throw grammar Error', () => {
+        const t = ParseList('(defun)')
+        const input = () => { Evaluate(t) }
+
+        expect(input).toThrowError(Error('defun does not have enought arguments needs 3 arguments. got=0'))
+    })
+
+    test('main function', () => {
+        const t = ParseList('(defun main () 0)')
+        const input = Evaluate(t)
+
+        expect(input.value).toBe(true)
     })
 })
