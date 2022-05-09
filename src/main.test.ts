@@ -1,6 +1,6 @@
 import { toChar, isAtom, isList, first, rest } from './parser';
 import { ParseAtom, Atom, List, ParseList } from "./parser";
-import { Evaluate } from "./evaluator";
+import { Evaluate, Execute } from "./evaluator";
 
 describe.skip('Parse', () => {
         test('expect return: array of chars', () => {
@@ -535,21 +535,21 @@ describe("Function", () => {
         const t = ParseList('(defun () 0)')
         const input = () => { Evaluate(t) }
 
-        expect(input).toThrowError(Error('defun does not have enought arguments needs 3 arguments. got=2'))
+        expect(input).toThrowError(Error('function does not have enought arguments needs 3 arguments. got=2'))
     })
 
     test('main function throw grammar Error', () => {
         const t = ParseList('(defun main)')
         const input = () => { Evaluate(t) }
 
-        expect(input).toThrowError(Error('defun does not have enought arguments needs 3 arguments. got=1'))
+        expect(input).toThrowError(Error('function does not have enought arguments needs 3 arguments. got=1'))
     })
 
     test('main function throw grammar Error', () => {
         const t = ParseList('(defun)')
         const input = () => { Evaluate(t) }
 
-        expect(input).toThrowError(Error('defun does not have enought arguments needs 3 arguments. got=0'))
+        expect(input).toThrowError(Error('function does not have enought arguments needs 3 arguments. got=0'))
     })
 
     test('main function', () => {
@@ -557,5 +557,23 @@ describe("Function", () => {
         const input = Evaluate(t)
 
         expect(input.value).toBe(true)
+    })
+
+    test('main function should seccess', () => {
+        const t = ParseList('(defun main () 3)')
+        const input = Execute(t)
+
+        expect(input.value).toBe(3)
+    })
+
+    test('arbitrary function def within main()', () => {
+        const t = ParseList(`
+            (defun main ()
+                (defun fn () 5)
+                (fn)
+            )
+        `)
+        const input = Execute(t)
+        expect(input.value).toBe(5)
     })
 })
