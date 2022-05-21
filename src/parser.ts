@@ -62,9 +62,10 @@ function parseListActual(elements: string[], i: number): [List, number] {
         }
 
         // find start of Atom
-        if (elements[i] === ListElementsDelimeter) {
+        if (ListElementsDelimeter.includes(elements[i])) {
             addAtom();
             start = -1;
+            
         } else {
             if (start == -1) {
                 start = i;

@@ -146,9 +146,9 @@ function doFunctionOperations(r: List, f: Atom<string>, ctx: Context): AUT {
 
     // check if the function name already defined 
     if (fname.value in ctx) {
-        throw Error(fname.value + ' is already occupied')
+        throw Error(fname.value + ' is already defined')
     } else {
-        const fparams = r.items[1]
+        const fparams = <List>r.items[1]
         const fbodies = r.items.slice(2)
 
         // body of the function
@@ -157,6 +157,7 @@ function doFunctionOperations(r: List, f: Atom<string>, ctx: Context): AUT {
             return h[h.length - 1]
         })
     }
+
     return <Atom<boolean>> { value: true }
 }
 
@@ -192,6 +193,7 @@ export function Evaluate(exp: AUT | List, ctx: Context = {}): AUT {
         }
         return f 
     }
+
     throw Error('Unknown evaluation error: ' + exp);
 };
 
@@ -204,6 +206,7 @@ export function Execute(exp: AUT | List): AUT {
         const args = <List>{items : []}
         return defun(args)
     }
+
     return retval
 }
 

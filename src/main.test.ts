@@ -530,7 +530,7 @@ describe.skip('Conditioning Operators', () => {
     })
 })
 
-describe("Function", () => {
+describe.skip("Function", () => {
     test('function throw grammar Error', () => {
         const t = ParseList('(defun () 0)')
         const input = () => { Evaluate(t) }
@@ -566,10 +566,17 @@ describe("Function", () => {
         expect(input.value).toBe(3)
     })
 
+    test('main function should seccess', () => {
+        const t = ParseList('(defun main () (+ 1 2))')
+        const input = Execute(t)
+
+        expect(input.value).toBe(3)
+    })
+
     test('arbitrary function def within main()', () => {
         const t = ParseList(`
             (defun main ()
-                (defun fn () 5)
+                (defun def () 5)
                 (fn)
             )
         `)
