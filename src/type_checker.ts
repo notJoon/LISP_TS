@@ -17,7 +17,7 @@ NAME = [a-zA-Z_][a-zA-Z0-9_]*
 
 */
 
-type Expression = ExpInt | ExpVar | ExpFunction | ExpCall | ExpIf;
+type Expression = ExpInt | ExpVar | ExpFunction | ExpCall | ExpIf | ExLet;
 /* Expression 
 Type representing. It takes one of types like `Int`, `Var`...  
 
@@ -36,6 +36,12 @@ type ExpIf = {
     condition: Expression, 
     trueBranch: Expression, 
     falseBranch: Expression
+};
+type ExLet = { 
+    nodeType: "Let",
+    name: string,
+    rhs: Expression,
+    body: Expression
 };
 
 
@@ -56,7 +62,7 @@ type TFunc = { nodeType: "Function", from: Type, to: Type };
 
 type Environment = {
 // mapping of variable name and their inferred type. 
-    [name: string]: Type;
+    [name: string]: Type | Forall;
 };
 
 type Context = {
@@ -69,7 +75,7 @@ type Substitution = {
     [key: string]: Type;
 };
 
-function applySubstitutionToType(s: Substitution, type: Type): Type {
+function applySubToType(s: Substitution, type: Type): Type {
 // replace the type var in a type that 
 // are present in the given substitution and return 
 // the type with those vars with their substituted values.
@@ -89,13 +95,13 @@ function applySubstitutionToType(s: Substitution, type: Type): Type {
         case "Function":
             return {
                 nodeType: "Function",
-                from: applySubstitutionToType(s, type.from),
-                to: applySubstitutionToType(s, type.to)
+                from: applySubToType(s, type.from),
+                to: applySubToType(s, type.to)
         };
     };
 };
 
-function addToContext(ctx: Context, name: string, type: Type): Context {
+function addToContext(ctx: Context, name: string, type: Type | Forall): Context {
 // adds the mapping of the name and type of the context's environment 
 // it doesn't mutate the original context or it's environment 
 // makes a copy and returns a new context. Because, it should only be visible in the scope 
@@ -108,6 +114,7 @@ function addToContext(ctx: Context, name: string, type: Type): Context {
 
     return newEnv;
 };
+
 
 function newTVar(ctx: Context): Type {
 // Each call will generate a new type variable.
@@ -148,7 +155,7 @@ function inference(ctx: Context, e: Expression): [Type, Substitution] {
                 const [bodyType, sub] = inference(newCtx, e.body);
                 const inferredType: Type = {
                     nodeType: "Function",
-                    from: applySubstitutionToType(sub, newType),
+                    from: applySubToType(sub, newType),
                     to: bodyType
                 };
 
@@ -167,15 +174,15 @@ function inference(ctx: Context, e: Expression): [Type, Substitution] {
                         to: newVar
                     }, funcType);
 
-                    const funcType1 = applySubstitutionToType(s4, funcType);
+                    const funcType1 = applySubToType(s4, funcType);
                     const s5 = composeSub(s3, s4);
                     const s6 = unification(
-                        applySubstitutionToType(s5, (funcType1 as TFunc).from),
+                        applySubToType(s5, (funcType1 as TFunc).from),
                         argType
                     );
                     const resultSub = composeSub(s5, s6);
 
-                    return [applySubstitutionToType(resultSub, (funcType1 as TFunc).to), resultSub];
+                    return [applySubToType(resultSub, (funcType1 as TFunc).to), resultSub];
                 }
             
             case "If": {
@@ -192,13 +199,13 @@ function inference(ctx: Context, e: Expression): [Type, Substitution] {
                 const [_falseBranchType, s4] = inference(ctx2, e.falseBranch);
                 const s5 = composeSub(s3, s4);
 
-                const trueBranchType = applySubstitutionToType(s5, _trueBranchType);
-                const falseBranchType = applySubstitutionToType(s5, _falseBranchType);
+                const trueBranchType = applySubToType(s5, _trueBranchType);
+                const falseBranchType = applySubToType(s5, _falseBranchType);
                 const s6 = unification(trueBranchType, falseBranchType);
 
                 const resultSub = composeSub(s5, s6);
                 return [
-                    applySubstitutionToType(s6, trueBranchType),
+                    applySubToType(s6, trueBranchType),
                     resultSub
                 ];
             }
@@ -261,8 +268,8 @@ function unification(t1: Type, t2: Type): Substitution {
             && t2.nodeType === "Function") {
                 const s1 = unification(t1.from, t2.from);
                 const s2 = unification(
-                    applySubstitutionToType(s1, t1.to),
-                    applySubstitutionToType(s1, t2.to)
+                    applySubToType(s1, t1.to),
+                    applySubToType(s1, t2.to)
                 );
             return composeSub(s1, s2);
         } else {
@@ -286,7 +293,7 @@ function composeSub(s1: Substitution, s2: Substitution): Substitution {
     const result: Substitution = {};
     for (const k in s2) {
         const type = s2[k];
-        result[k] = applySubstitutionToType(s1, type);
+        result[k] = applySubToType(s1, type);
     };
 
     return {...s1, ...result};
@@ -310,15 +317,171 @@ function applySubToCtx(sub: Substitution, ctx: Context): Context {
 
     for (const name in newContext.env) {
         const t = newContext.env[name];
-        newContext.env[name] = applySubstitutionToType(sub, t);
+        newContext.env[name] = applySubToType(sub, t);
     };
 
     return newContext;
 };
 
+//* polymorphic function
+// e.g. (x) => x   <- this function should work for any Types
+//                    Its return type is the same as the type of its argument. 
+//
+//* Universal Quantification
+// polymorphic types are expressible through the means of universal quantification.
+// e.g) for all A.A -> A
+//    -> for all <T> "A", the type of this function is A -> A
+//       with for all quantification. may be "instantiated" when they are
+//       used with a concrete type.
+// Type instantiation is similar to calling a function.
+//
+// Instantiating a quantified type is equivalent to replacing the instances of the "type parameter"
+// in its body with the "type argument" and removing the for all clause.
+//
+//* Rank
+// The depth at which a quantifier can appear 
+// e.g. `Rank 0 types` mean a quantifier can only appear at the top level
+// under Rank 1 restriction, this type is valid
+//  >>> for all A.A -> A
+//! invalid
+//  >>> for all A.A -> (for all B.B -> B)
+
+interface Forall {
+    nodeType: "Forall",
+    quantifier: string[],
+    type: Type
+};
+
+function applySubToForall(sub: Substitution, type: Forall): Forall {
+    const subWithoutBound = { ...sub };
+    for (const name of type.quantifier) {
+        delete subWithoutBound[name];
+    }
+
+    return {
+        ...type,
+        type: applySubToType(subWithoutBound, type.type)
+    };
+};
+
+type FreeVars = {
+    [name: string]: true;
+};
+
+// Take union of two sets of free vars.
+// Result contains all vars that are in either set.
+function union(a: FreeVars, b: FreeVars): FreeVars {
+    return { ...a, ...b };
+};
+
+// Difference of two sets of free vars.
+// Only contains vars that are in `a` and not in `b`
+function difference(a: FreeVars, b: FreeVars): FreeVars {
+    const result = { ...a };
+    for (const name in b) {
+        if (result[name]) {
+            delete result[name];
+        }
+    }
+
+    return result;
+};
+
+function freeTypeVarsInType(t: Type): FreeVars {
+    switch (t.nodeType) {
+        case "Named": return {};
+        case "Var": return {[t.name]: true};
+        case "Function":
+            return union(
+                freeTypeVarsInType(t.from),
+                freeTypeVarsInType(t.to)
+            );
+    };
+};
+
+function freeTypeVarsInEnv(env: Environment): FreeVars {
+    let result: FreeVars = {};
+    for (const k in env) {
+        const t = env[k]
+        const freeVars = t.nodeType == "Forall"
+            ? freeTypeVarsInForall(t)
+            : freeTypeVarsInType(t);
+        
+        result = union(result, freeVars);
+    }
+
+    return result;
+};
+
+// Free vars in forall are those vars that are free
+// in the type minus those bound by quantifiers.
+function freeTypeVarsInForall(t: Forall): FreeVars {
+    const quantifiers: FreeVars = {};
+    for (const name of t.quantifier) {
+        quantifiers[name] = true;
+    };
+
+    const freeInType = freeTypeVarsInType(t.type);
+
+    return difference(freeInType, quantifiers);
+};
+
+// instantiate Forall types.
+// It involves generating new type vars for each quantified variable
+// and substituting them in the body of forall and returning it.
+function instantiate(ctx: Context, forall: Forall): Type {
+    const sub: Substitution = {};
+    for (const name of forall.quantifier) {
+        const tVar = newTVar(ctx); 
+        sub[name] = tVar;
+    }
+
+    return applySubToType(sub, forall.type);
+}
+
+function inferVar(ctx: Context, e: ExpVar): [Type, Substitution] {
+    const env = ctx.env;
+    if (env[e.name]) {
+        const envType = env[e.name];
+        if(envType.nodeType === "Forall") {
+            return [instantiate(ctx, envType), {}];
+        } else {
+            return [envType, {}];
+        }
+    } else {
+        throw `unbound var ${e.name}`;
+    }
+};
+
+function generalization(env: Environment, t: Type): Type | Forall {
+    const envFreeVars = freeTypeVarsInEnv(env);
+    const typeFreeVars = freeTypeVarsInType(t);
+    const quantifiers = Object.keys(difference(typeFreeVars, envFreeVars));
+
+    if (quantifiers.length > 0) {
+        return {
+            nodeType: "Forall",
+            quantifier: quantifiers,
+            type: t
+        };
+    } else {
+        return t;
+    }
+};
+
+function inferLet(ctx: Context, expr: ExLet): [Type, Substitution] {
+    const [rhsType, s1] = inference(ctx, expr.rhs);
+    const ctx1 = applySubToCtx(s1, ctx);
+    const rhsPolyType = generalization(ctx1.env, rhsType);
+    const ctx2 = addToContext(ctx1, expr.name, rhsPolyType);
+    const [bodyType, s2] = inference(ctx2, expr.body);
+    const s3 = composeSub(s1, s2);
+
+    return [bodyType, s3];
+};
 
 
-//* Testing function  *//
+// Helper functions 
 
 function v(name: string): Expression {
     return {
@@ -378,6 +541,39 @@ function tf(...types: Type[]): Type {
     }));
 };
 
+function forall(q: string[], t: Type): Forall {
+    return {
+        nodeType: "Forall",
+        quantifier: q,
+        type: t
+    };
+};
+
+function eLet(
+    name: string,
+    _rhs: string | Expression,
+    _body: string | Expression
+): Expression {
+    const rhs = e(_rhs);
+    const body = e(_body);
+
+    return {
+        nodeType: "Let",
+        name: name,
+        rhs,
+        body
+    };
+};
+
+function e(expr: Expression | string): Expression {
+    if (typeof expr === "string") {
+        return v(expr);
+    } else {
+        return expr;
+    };
+};
+
+
 const initialEnv = {
     "true": tn("Bool"),
     "false": tn("Bool"),
@@ -388,39 +584,3 @@ const initialEnv = {
     "Bool==": tf(tv("Bool"), tv("Bool"), tv("Bool")),
     "+": tf(tn("Int"), tn("Int"), tn("Int"))
 };
-
-// console.log(
-//     inference({
-//         next: 0,
-//         env: initialEnv
-//     },
-//     c("+", i(1), i(2))
-// )[0]);
-
-//* polymorphic function
-// e.g. (x) => x   <- this function should work for any Types
-//                    Its return type is the same as the type of its argument. 
-//
-//* Universal Quantification
-// polymorphic types are expressible through the means of universal quantification.
-// e.g) for all A.A -> A
-//    -> for all <T> "A", the type of this function is A -> A
-//       with for all quantification. may be "instantiated" when they are
-//       used with a concrete type.
-// Type instantiation is similar to calling a function.
-//
-// Instantiating a quantified type is equivalent to replacing the instances of the "type parameter"
-// in its body with the "type argument" and removing the for all clause.
-//
-//* Rank
-// The depth at which a quantifier can appear 
-// e.g. `Rank 0 types` mean a quantifier can only appear at the top level
-// under Rank 1 restriction, this type is valid
-//  >>> for all A.A -> A
-//! invalid
-//  >>> for all A.A -> (for all B.B -> B)
-
-
-
-
-
